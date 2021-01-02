@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/mediocregopher/radix"
+	_ "github.com/mediocregopher/radix"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -19,6 +21,22 @@ type Article struct {
 var Articles []Article
 
 func main() {
+
+	customConnFunc := func(network, addr string) (radix.Conn, error) {
+		return radix.Dial(network, addr,
+			radix.DialAuthPass("Vny0iYdqnFewcw5iPGzs7e1q0qZlzdkaSEzC9W4zJ6caqaVwLIcda7gq2Fy7ZAqq51IcqTGiQot6pwbvYOoLWoJ13M2UwQkEsyy2DI630TByF6PjOmsYltQjoukGg0SPMOZev9YwyFw7qYcyLaSCZz"),
+		)
+	}
+
+
+	// this pool will use our ConnFunc for all connections it creates
+	client, err := radix.NewPool("tcp", "127.0.0.1:6379", 10, radix.PoolConnFunc(customConnFunc))
+
+	err = client.Do(radix.Cmd(nil, "SET", "foo", "someval"))
+	if err != nil {
+		// handle error
+	}
+
 	fmt.Println("Rest API v2.0 - Mux Routers")
 	Articles = []Article{
 		Article{Id: "1", Title: "Hello", Desc: "Article Description", Content: "Article Content"},
@@ -27,13 +45,12 @@ func main() {
 	handleRequests()
 }
 
-func homePage(w http.ResponseWriter, r *http.Request){
+func homePage(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Welcome to the HomePage!")
 	fmt.Println("Endpoint Hit: homePage")
 }
 
-
-func returnAllArticles(w http.ResponseWriter, r *http.Request){
+func returnAllArticles(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: returnAllArticles")
 	json.NewEncoder(w).Encode(Articles)
 }
@@ -121,4 +138,3 @@ func deleteArticle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
-
