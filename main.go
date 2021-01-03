@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"github.com/gorilla/mux"
+	"github.com/nitishm/go-rejson"
+
 	//"github.com/mediocregopher/radix"
 	"io/ioutil"
 	"log"
@@ -19,13 +21,16 @@ type Article struct {
 }
 
 var client redis.Conn
-
+var rh rejson.Handler
 func main() {
 
-	client, err := redis.Dial("127.0.0.1", ":6379",
+	var err error
+
+	client, err = redis.Dial("tcp", "127.0.0.1:6379",
 		redis.DialPassword("Vny0iYdqnFewcw5iPGzs7e1q0qZlzdkaSEzC9W4zJ6caqaVwLIcda7gq2Fy7ZAqq51IcqTGiQot6pwbvYOoLWoJ13M2UwQkEsyy2DI630TByF6PjOmsYltQjoukGg0SPMOZev9YwyFw7qYcyLaSCZz"))
 
-	fmt.Println(client)
+	defer client.Close()
+
 	// this pool will use our ConnFunc for all connections it creates
 	if err != nil {
 		// handle error
@@ -98,26 +103,25 @@ func createNewArticle(w http.ResponseWriter, r *http.Request) {
 
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	var article Article
-	var id string
+
+	rh.SetRedigoClient(client)
 
 	json.Unmarshal(reqBody, &article)
 
-	//res, err := client.Do("INCR", "articles:count")
-	//if err != nil {
-	//
-	//}
-
-	article.Id = id
-	res, err := json.Marshal(article)
-
-	fmt.Println(res)
-	fmt.Println(article)
-	_, err = client.Do("SET", "article:" + id, res)
+	_, err := client.Do("INCR", "articles:count")
 	if err != nil {
 
 	}
 
-	fmt.Println(res)
+	id := "5"
+
+	article.Id = id
+	test, err := rh.JSONSet("article:" + id, ".", article)
+
+	if err != nil {
+		log.Fatalf("Failed to JSONSet" + err.Error())
+	}
+	fmt.Println(test)
 	json.NewEncoder(w).Encode(article)
 
 }
