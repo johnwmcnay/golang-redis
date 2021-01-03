@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/mediocregopher/radix"
-	_ "github.com/mediocregopher/radix"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -83,34 +82,36 @@ func updateArticle(w http.ResponseWriter, r *http.Request) {
 }
 
 func returnSingleArticle(w http.ResponseWriter, r *http.Request) {
-	//vars := mux.Vars(r)
-	//key := vars["id"]
-	//
-	//fmt.Println("Endpoint Hit: returnSingleArticle")
-	//// Loop over all of our Articles
-	//// if the article.Id equals the key we pass in
-	//// return the article encoded as JSON
-	//for _, article := range Articles {
-	//	if article.Id == key {
-	//		json.NewEncoder(w).Encode(article)
-	//	}
-	//}
+	vars := mux.Vars(r)
+	key := vars["id"]
+
+	fmt.Println("Endpoint Hit: returnSingleArticle")
+	fmt.Println(key)
 }
 
 func createNewArticle(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: createNewArticle")
-	// get the body of our POST request
-	// unmarshal this into a new Article struct
-	// append this to our Articles array.
+
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	var article Article
+	var id string
+
 	json.Unmarshal(reqBody, &article)
-	// update our global Articles array to include
-	// our new Article
-	err := client.Do(radix.Cmd(nil, "SET", "article" , "test"))
+
+	err := client.Do(radix.Cmd(&id, "INCR", "articles:count"))
 	if err != nil {
 
 	}
+
+	article.Id = id
+	res, err := json.Marshal(article)
+
+	err = client.Do(radix.Cmd(nil, "SET", "article:" + id, string(res)))
+	if err != nil {
+
+	}
+
+
 	json.NewEncoder(w).Encode(article)
 }
 
