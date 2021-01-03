@@ -3,8 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gomodule/redigo/redis"
 	"github.com/gorilla/mux"
-	"github.com/mediocregopher/radix"
+	//"github.com/mediocregopher/radix"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -17,20 +18,15 @@ type Article struct {
 	Content string `json:"Content"`
 }
 
-var client radix.Client
+var client redis.Conn
 
 func main() {
 
-	customConnFunc := func(network, addr string) (radix.Conn, error) {
-		return radix.Dial(network, addr,
-			radix.DialAuthPass("Vny0iYdqnFewcw5iPGzs7e1q0qZlzdkaSEzC9W4zJ6caqaVwLIcda7gq2Fy7ZAqq51IcqTGiQot6pwbvYOoLWoJ13M2UwQkEsyy2DI630TByF6PjOmsYltQjoukGg0SPMOZev9YwyFw7qYcyLaSCZz"),
-		)
-	}
+	client, err := redis.Dial("127.0.0.1", ":6379",
+		redis.DialPassword("Vny0iYdqnFewcw5iPGzs7e1q0qZlzdkaSEzC9W4zJ6caqaVwLIcda7gq2Fy7ZAqq51IcqTGiQot6pwbvYOoLWoJ13M2UwQkEsyy2DI630TByF6PjOmsYltQjoukGg0SPMOZev9YwyFw7qYcyLaSCZz"))
 
-	var err error
+	fmt.Println(client)
 	// this pool will use our ConnFunc for all connections it creates
-	client, err = radix.NewPool("tcp", "127.0.0.1:6379", 10, radix.PoolConnFunc(customConnFunc))
-
 	if err != nil {
 		// handle error
 	}
@@ -82,11 +78,19 @@ func updateArticle(w http.ResponseWriter, r *http.Request) {
 }
 
 func returnSingleArticle(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	key := vars["id"]
-
-	fmt.Println("Endpoint Hit: returnSingleArticle")
-	fmt.Println(key)
+	//vars := mux.Vars(r)
+	//key := vars["id"]
+	//
+	//var article string
+	//
+	//err := client.Do(radix.Cmd(&article, "GET", "article:" + key))
+	//if err != nil {
+	//
+	//}
+	//
+	//fmt.Println("Endpoint Hit: returnSingleArticle")
+	//
+	//json.NewEncoder(w).Encode(article)
 }
 
 func createNewArticle(w http.ResponseWriter, r *http.Request) {
@@ -98,21 +102,24 @@ func createNewArticle(w http.ResponseWriter, r *http.Request) {
 
 	json.Unmarshal(reqBody, &article)
 
-	err := client.Do(radix.Cmd(&id, "INCR", "articles:count"))
-	if err != nil {
-
-	}
+	//res, err := client.Do("INCR", "articles:count")
+	//if err != nil {
+	//
+	//}
 
 	article.Id = id
 	res, err := json.Marshal(article)
 
-	err = client.Do(radix.Cmd(nil, "SET", "article:" + id, string(res)))
+	fmt.Println(res)
+	fmt.Println(article)
+	_, err = client.Do("SET", "article:" + id, res)
 	if err != nil {
 
 	}
 
-
+	fmt.Println(res)
 	json.NewEncoder(w).Encode(article)
+
 }
 
 func deleteArticle(w http.ResponseWriter, r *http.Request) {
