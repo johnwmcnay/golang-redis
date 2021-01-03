@@ -6,8 +6,6 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/gorilla/mux"
 	"github.com/nitishm/go-rejson"
-
-	//"github.com/mediocregopher/radix"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -30,6 +28,8 @@ func main() {
 		redis.DialPassword("Vny0iYdqnFewcw5iPGzs7e1q0qZlzdkaSEzC9W4zJ6caqaVwLIcda7gq2Fy7ZAqq51IcqTGiQot6pwbvYOoLWoJ13M2UwQkEsyy2DI630TByF6PjOmsYltQjoukGg0SPMOZev9YwyFw7qYcyLaSCZz"))
 
 	defer client.Close()
+
+	rh.SetRedigoClient(client)
 
 	// this pool will use our ConnFunc for all connections it creates
 	if err != nil {
@@ -83,19 +83,25 @@ func updateArticle(w http.ResponseWriter, r *http.Request) {
 }
 
 func returnSingleArticle(w http.ResponseWriter, r *http.Request) {
-	//vars := mux.Vars(r)
-	//key := vars["id"]
-	//
-	//var article string
-	//
-	//err := client.Do(radix.Cmd(&article, "GET", "article:" + key))
-	//if err != nil {
-	//
-	//}
-	//
-	//fmt.Println("Endpoint Hit: returnSingleArticle")
-	//
-	//json.NewEncoder(w).Encode(article)
+	vars := mux.Vars(r)
+	key := vars["id"]
+
+	res, err := redis.Bytes(rh.JSONGet("article:" + key, "."))
+	if err != nil {
+		panic(err)
+	}
+
+	article := Article{}
+	err = json.Unmarshal(res, &article)
+	if err != nil {
+		log.Fatalf("Failed to JSON Unmarshal")
+		return
+	}
+
+	fmt.Println("Endpoint Hit: returnSingleArticle")
+	fmt.Println(res)
+	fmt.Println(article)
+	json.NewEncoder(w).Encode(article)
 }
 
 func createNewArticle(w http.ResponseWriter, r *http.Request) {
@@ -104,17 +110,14 @@ func createNewArticle(w http.ResponseWriter, r *http.Request) {
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	var article Article
 
-	rh.SetRedigoClient(client)
-
 	json.Unmarshal(reqBody, &article)
 
-	_, err := client.Do("INCR", "articles:count")
+	res, err := client.Do("INCR", "articles:count")
 	if err != nil {
 
 	}
 
-	id := "5"
-
+	id := fmt.Sprintf("%v", res)
 	article.Id = id
 	test, err := rh.JSONSet("article:" + id, ".", article)
 
