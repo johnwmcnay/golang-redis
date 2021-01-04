@@ -31,7 +31,6 @@ func main() {
 
 	rh.SetRedigoClient(client)
 
-	// this pool will use our ConnFunc for all connections it creates
 	if err != nil {
 		// handle error
 	}
@@ -47,6 +46,14 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 
 func returnAllArticles(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: returnAllArticles")
+	res, err := client.Do("SCAN", "0", "MATCH", "article:*")
+
+	if err != nil {
+
+	}
+
+	fmt.Println(res)
+
 	//json.NewEncoder(w).Encode(Articles)
 }
 func handleRequests() {
