@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"reflect"
 )
 
 type Article struct {
@@ -17,6 +18,7 @@ type Article struct {
 	Desc    string `json:"Desc"`
 	Content string `json:"Content"`
 }
+
 
 var client redis.Conn
 var rh rejson.Handler
@@ -31,7 +33,6 @@ func main() {
 
 	rh.SetRedigoClient(client)
 
-	// this pool will use our ConnFunc for all connections it creates
 	if err != nil {
 		// handle error
 	}
@@ -45,18 +46,15 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: homePage")
 }
 
-func returnAllArticles(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Endpoint Hit: returnAllArticles")
-	//json.NewEncoder(w).Encode(Articles)
-}
+
 func handleRequests() {
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.HandleFunc("/", homePage)
-	myRouter.HandleFunc("/all", returnAllArticles)
-	myRouter.HandleFunc("/article/{id}", deleteArticle).Methods("DELETE")
-	myRouter.HandleFunc("/article/{id}", updateArticle).Methods("PUT")
-	myRouter.HandleFunc("/article/{id}", returnSingleArticle)
-	myRouter.HandleFunc("/article", createNewArticle).Methods("POST")
+	myRouter.HandleFunc("/articles", returnAllArticles)
+	myRouter.HandleFunc("/articles/{id}", deleteArticle).Methods("DELETE")
+	myRouter.HandleFunc("/articles/{id}", updateArticle).Methods("PUT")
+	myRouter.HandleFunc("/articles/{id}", returnSingleArticle)
+	myRouter.HandleFunc("/articles", createNewArticle).Methods("POST")
 
 	log.Fatal(http.ListenAndServe(":10000", myRouter))
 }
@@ -82,6 +80,34 @@ func updateArticle(w http.ResponseWriter, r *http.Request) {
 	//}
 }
 
+func returnAllArticles(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Endpoint Hit: returnAllArticles")
+
+ //[ []  [ [] [] [] [] ]   ]
+
+	res, err := client.Do("SCAN", "0", "MATCH", "article:*")
+
+	if err != nil {
+
+	}
+
+	arr := reflect.ValueOf(res).Index(1)
+	article := Article{}
+
+	var list []Article
+
+	for i := 0; i < arr.Elem().Len(); i++ {
+
+		key, _ := redis.String(arr.Elem().Index(i).Elem().Interface(), err)
+
+		obj, _ := redis.Bytes(rh.JSONGet(key, "."))
+
+		err = json.Unmarshal(obj, &article)
+		list = append(list, article)
+	}
+	json.NewEncoder(w).Encode(list)
+}
+
 func returnSingleArticle(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	key := vars["id"]
@@ -99,8 +125,6 @@ func returnSingleArticle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Println("Endpoint Hit: returnSingleArticle")
-	fmt.Println(res)
-	fmt.Println(article)
 	json.NewEncoder(w).Encode(article)
 }
 
