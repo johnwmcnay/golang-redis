@@ -50,10 +50,10 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 func handleRequests() {
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.HandleFunc("/", homePage)
-	myRouter.HandleFunc("/articles", returnAllArticles)
+	myRouter.HandleFunc("/articles", returnAllArticles).Methods("GET")
+	myRouter.HandleFunc("/articles/{id}", returnSingleArticle).Methods("GET")
 	myRouter.HandleFunc("/articles/{id}", deleteArticle).Methods("DELETE")
 	myRouter.HandleFunc("/articles/{id}", updateArticle).Methods("PUT")
-	myRouter.HandleFunc("/articles/{id}", returnSingleArticle)
 	myRouter.HandleFunc("/articles", createNewArticle).Methods("POST")
 
 	log.Fatal(http.ListenAndServe(":10000", myRouter))
@@ -63,49 +63,51 @@ func updateArticle(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Endpoint Hit: updateArticle")
 
-	//reqBody, _ := ioutil.ReadAll(r.Body)
-	//var article Article
-	//vars := mux.Vars(r)
-	//key := vars["id"]
-	//
-	//json.Unmarshal(reqBody, &article)
-	//// update our global Articles array to include
-	//// our new Article
-	//for index, art := range Articles {
-	//	if art.Id == key {
-	//		Articles[index] = article
-	//		json.NewEncoder(w).Encode(article)
-	//		break
-	//	}
-	//}
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	reqBody, _ := ioutil.ReadAll(r.Body)
+	var article Article
+
+	json.Unmarshal(reqBody, &article)
+
+	if id != article.Id {
+		return
+	}
+
+	_, err := rh.JSONSet("article:" + id, ".", article)
+
+	if err != nil {
+		log.Fatalf("Failed to JSONSet" + err.Error())
+	}
+
+	json.NewEncoder(w).Encode(article)
 }
 
 func returnAllArticles(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: returnAllArticles")
 
- //[ []  [ [] [] [] [] ]   ]
-
-	res, err := client.Do("SCAN", "0", "MATCH", "article:*")
+	results, err := client.Do("SCAN", "0", "MATCH", "article:*")
 
 	if err != nil {
 
 	}
 
-	arr := reflect.ValueOf(res).Index(1)
+	arrayOfByteArrays := reflect.ValueOf(results).Index(1)
 	article := Article{}
 
-	var list []Article
+	var jsonList []Article
 
-	for i := 0; i < arr.Elem().Len(); i++ {
+	for i := 0; i < arrayOfByteArrays.Elem().Len(); i++ {
 
-		key, _ := redis.String(arr.Elem().Index(i).Elem().Interface(), err)
+		key, _ := redis.String(arrayOfByteArrays.Elem().Index(i).Elem().Interface(), err)
 
-		obj, _ := redis.Bytes(rh.JSONGet(key, "."))
+		byteArray, _ := redis.Bytes(rh.JSONGet(key, "."))
 
-		err = json.Unmarshal(obj, &article)
-		list = append(list, article)
+		err = json.Unmarshal(byteArray, &article)
+		jsonList = append(jsonList, article)
 	}
-	json.NewEncoder(w).Encode(list)
+	json.NewEncoder(w).Encode(jsonList)
 }
 
 func returnSingleArticle(w http.ResponseWriter, r *http.Request) {
@@ -143,34 +145,29 @@ func createNewArticle(w http.ResponseWriter, r *http.Request) {
 
 	id := fmt.Sprintf("%v", res)
 	article.Id = id
-	test, err := rh.JSONSet("article:" + id, ".", article)
+	_, err = rh.JSONSet("article:" + id, ".", article)
 
 	if err != nil {
 		log.Fatalf("Failed to JSONSet" + err.Error())
 	}
-	fmt.Println(test)
+
 	json.NewEncoder(w).Encode(article)
 
 }
 
 func deleteArticle(w http.ResponseWriter, r *http.Request) {
-	// once again, we will need to parse the path parameters
-	//vars := mux.Vars(r)
-	//// we will need to extract the `id` of the article we
-	//// wish to delete
-	//id := vars["id"]
-	//
-	//fmt.Println("Endpoint Hit: Delete Article")
-	//
-	//// we then need to loop through all our articles
-	//for index, article := range Articles {
-	//	// if our id path parameter matches one of our
-	//	// articles
-	//	if article.Id == id {
-	//		// updates our Articles array to remove the
-	//		// article
-	//		Articles = append(Articles[:index], Articles[index+1:]...)
-	//		break
-	//	}
-	//}
+
+	vars := mux.Vars(r)
+
+	id := vars["id"]
+
+	fmt.Println("Endpoint Hit: Delete Article")
+	fmt.Println(id)
+	_, err := rh.JSONDel("article:" + id, ".")
+
+	if err != nil {
+		log.Fatalf("Failed to JSONDel" + err.Error())
+	}
+
+
 }
