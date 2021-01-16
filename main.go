@@ -13,14 +13,6 @@ import (
 
 )
 
-type Article struct {
-	Id      string `json:"Id"`
-	Title   string `json:"Title"`
-	Desc    string `json:"Desc"`
-	Content string `json:"Content"`
-}
-
-
 var client redis.Conn
 var rh rejson.Handler
 func main() {
@@ -51,16 +43,16 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 func handleRequests() {
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.HandleFunc("/", homePage)
-	myRouter.HandleFunc("/{object}", returnAllArticles).Methods("GET")
-	myRouter.HandleFunc("/{object}/{id}", returnSingleArticle).Methods("GET")
-	myRouter.HandleFunc("/{object}/{id}", deleteArticle).Methods("DELETE")
-	myRouter.HandleFunc("/{object}/{id}", updateArticle).Methods("PUT")
-	myRouter.HandleFunc("/{object}", createNewArticle).Methods("POST")
+	myRouter.HandleFunc("/{object}", returnAllObjects).Methods("GET")
+	myRouter.HandleFunc("/{object}/{id}", returnSingleObjects).Methods("GET")
+	myRouter.HandleFunc("/{object}/{id}", deleteObjects).Methods("DELETE")
+	myRouter.HandleFunc("/{object}/{id}", updateObjects).Methods("PUT")
+	myRouter.HandleFunc("/{object}", createNewObjects).Methods("POST")
 
 	log.Fatal(http.ListenAndServe(":10000", myRouter))
 }
 
-func updateArticle(w http.ResponseWriter, r *http.Request) {
+func updateObjects(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Endpoint Hit: updateArticle")
 
@@ -88,7 +80,7 @@ func updateArticle(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(m)
 }
 
-func returnAllArticles(w http.ResponseWriter, r *http.Request) {
+func returnAllObjects(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: returnAllArticles")
 
 	vars := mux.Vars(r)
@@ -119,7 +111,7 @@ func returnAllArticles(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(jsonList)
 }
 
-func returnSingleArticle(w http.ResponseWriter, r *http.Request) {
+func returnSingleObjects(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	key := vars["id"]
 	obj := vars["object"]
@@ -143,7 +135,7 @@ func returnSingleArticle(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(m)
 }
 
-func createNewArticle(w http.ResponseWriter, r *http.Request) {
+func createNewObjects(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: createNewArticle")
 
 	vars := mux.Vars(r)
@@ -164,7 +156,7 @@ func createNewArticle(w http.ResponseWriter, r *http.Request) {
 	m := object.(map[string]interface{})
 	m["Id"] = id
 
-	_, err = rh.JSONSet("articles:" + id, ".", m)
+	_, err = rh.JSONSet(obj + ":" + id, ".", m)
 
 	if err != nil {
 		log.Fatalf("Failed to JSONSet" + err.Error())
@@ -174,7 +166,7 @@ func createNewArticle(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func deleteArticle(w http.ResponseWriter, r *http.Request) {
+func deleteObjects(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	id := vars["id"]
