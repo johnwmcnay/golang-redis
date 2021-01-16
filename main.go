@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+
 )
 
 type Article struct {
@@ -67,27 +68,30 @@ func updateArticle(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	reqBody, _ := ioutil.ReadAll(r.Body)
-	var article Article
 
-	json.Unmarshal(reqBody, &article)
+	var object interface{}
+	json.Unmarshal(reqBody, &object)
 
-	if id != article.Id {
+	m := object.(map[string]interface{})
+
+
+	if id != m["Id"] {
 		return
 	}
 
-	_, err := rh.JSONSet("article:" + id, ".", article)
+	_, err := rh.JSONSet("articles:" + id, ".", m)
 
 	if err != nil {
 		log.Fatalf("Failed to JSONSet" + err.Error())
 	}
 
-	json.NewEncoder(w).Encode(article)
+	json.NewEncoder(w).Encode(m)
 }
 
 func returnAllArticles(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: returnAllArticles")
 
-	results, err := client.Do("SCAN", "0", "MATCH", "article:*")
+	results, err := client.Do("SCAN", "0", "MATCH", "articles:*")
 
 	if err != nil {
 
@@ -114,44 +118,50 @@ func returnSingleArticle(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	key := vars["id"]
 
-	res, err := redis.Bytes(rh.JSONGet("article:" + key, "."))
+	res, err := redis.Bytes(rh.JSONGet("articles:" + key, "."))
 	if err != nil {
 		panic(err)
 	}
 
-	article := Article{}
-	err = json.Unmarshal(res, &article)
+	var object interface{}
+
+	err = json.Unmarshal(res, &object)
+	m := object.(map[string]interface{})
+
 	if err != nil {
 		log.Fatalf("Failed to JSON Unmarshal")
 		return
 	}
 
 	fmt.Println("Endpoint Hit: returnSingleArticle")
-	json.NewEncoder(w).Encode(article)
+	json.NewEncoder(w).Encode(m)
 }
 
 func createNewArticle(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: createNewArticle")
 
 	reqBody, _ := ioutil.ReadAll(r.Body)
-	var article Article
 
-	json.Unmarshal(reqBody, &article)
+	var object interface{}
 
-	res, err := client.Do("INCR", "articles:count")
+	json.Unmarshal(reqBody, &object)
+
+	res, err := client.Do("INCR", "count:articles")
 	if err != nil {
 
 	}
 
 	id := fmt.Sprintf("%v", res)
-	article.Id = id
-	_, err = rh.JSONSet("article:" + id, ".", article)
+	m := object.(map[string]interface{})
+	m["Id"] = id
+
+	_, err = rh.JSONSet("articles:" + id, ".", m)
 
 	if err != nil {
 		log.Fatalf("Failed to JSONSet" + err.Error())
 	}
 
-	json.NewEncoder(w).Encode(article)
+	json.NewEncoder(w).Encode(m)
 
 }
 
@@ -163,7 +173,7 @@ func deleteArticle(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Endpoint Hit: Delete Article")
 	fmt.Println(id)
-	_, err := rh.JSONDel("article:" + id, ".")
+	_, err := rh.JSONDel("articles:" + id, ".")
 
 	if err != nil {
 		log.Fatalf("Failed to JSONDel" + err.Error())
