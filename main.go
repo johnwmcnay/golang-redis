@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
@@ -10,11 +11,40 @@ import (
 	"log"
 	"net/http"
 	"reflect"
-
 )
+
+
+type Person struct {
+	Id 			string `json:"id"`
+	Name 		string `json:"name"`
+	Age 		string `json:"age"`
+	DateJoined 	string `json:"dateJoined"`
+	DateUpdated string `json:"dateUpdated"`
+}
+
+type PersonExceptions struct {
+	Person
+	Other *string // Other won't raise an error
+}
+
+type Job struct {
+	Id 			string `json:"id"`
+	Name 		string `json:"test"`
+	Age 		string `json:"yes"`
+}
 
 var client redis.Conn
 var rh rejson.Handler
+var objectMap = map[string]map[string]interface{}{
+	"persons": {
+		"object": Person{},
+		"exception": &PersonExceptions{},
+	},
+	"jobs": {
+		"object": Job{},
+		"exception": nil,
+	}}
+
 func main() {
 
 	var err error
@@ -67,12 +97,24 @@ func updateObjects(w http.ResponseWriter, r *http.Request) {
 
 	reqBody, _ := ioutil.ReadAll(r.Body)
 
-	var object interface{}
+	object := objectMap[objectName]["object"]
+	exception := objectMap[objectName]["exception"]
+
+	dec := json.NewDecoder(bytes.NewReader(reqBody))
+	dec.DisallowUnknownFields()
+
+	if err := dec.Decode(exception); err != nil {
+		fmt.Println(err)
+		http.Error(w, "Bad Request", 400)
+		return
+	}
+
 	json.Unmarshal(reqBody, &object)
 
 	m := object.(map[string]interface{})
 
-	if id != m["Id"] {
+	if id != m["id"] {
+		http.Error(w, "Bad Request", 400)
 		return
 	}
 
@@ -89,16 +131,16 @@ func returnAllObjects(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: returnAllArticles")
 
 	vars := mux.Vars(r)
-	obj := vars["object"]
+	objectName := vars["object"]
 
-	results, err := client.Do("SCAN", "0", "MATCH", obj + ":*")
+	results, err := client.Do("SCAN", "0", "MATCH", objectName + ":*")
 
 	if err != nil {
 
 	}
 
 	arrayOfByteArrays := reflect.ValueOf(results).Index(1)
-	var object interface{}
+	object := objectMap[objectName]["object"]
 
 	var jsonList []map[string]interface{}
 
@@ -119,14 +161,14 @@ func returnAllObjects(w http.ResponseWriter, r *http.Request) {
 func returnSingleObjects(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	key := vars["id"]
-	obj := vars["object"]
+	objectName := vars["object"]
 
-	res, err := redis.Bytes(rh.JSONGet(obj + ":" + key, "."))
+	res, err := redis.Bytes(rh.JSONGet(objectName + ":" + key, "."))
 	if err != nil {
 		panic(err)
 	}
 
-	var object interface{}
+	object := objectMap[objectName]["object"]
 
 	err = json.Unmarshal(res, &object)
 	m := object.(map[string]interface{})
@@ -141,10 +183,7 @@ func returnSingleObjects(w http.ResponseWriter, r *http.Request) {
 }
 
 func objectIsAllowed(objectName string) bool {
-
-	objectMap := map[string]bool{"persons": true, "jobs": true}
-
-	return objectMap[objectName]
+	return objectMap[objectName] != nil
 }
 
 func createNewObjects(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +199,17 @@ func createNewObjects(w http.ResponseWriter, r *http.Request) {
 
 	reqBody, _ := ioutil.ReadAll(r.Body)
 
-	var object interface{}
+	object := objectMap[objectName]["object"]
+	exception := objectMap[objectName]["exception"]
+
+	dec := json.NewDecoder(bytes.NewReader(reqBody))
+	dec.DisallowUnknownFields()
+
+	if err := dec.Decode(exception); err != nil {
+		fmt.Println(err)
+		http.Error(w, "Bad Request", 400)
+		return
+	}
 
 	json.Unmarshal(reqBody, &object)
 
@@ -171,7 +220,7 @@ func createNewObjects(w http.ResponseWriter, r *http.Request) {
 
 	id := fmt.Sprintf("%v", res)
 	m := object.(map[string]interface{})
-	m["Id"] = id
+	m["id"] = id
 
 	_, err = rh.JSONSet(objectName + ":" + id, ".", m)
 
