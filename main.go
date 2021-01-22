@@ -58,7 +58,11 @@ func updateObjects(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	id := vars["id"]
-	obj := vars["object"]
+	objectName := vars["object"]
+
+	if !objectIsAllowed(objectName) {
+		return
+	}
 
 	reqBody, _ := ioutil.ReadAll(r.Body)
 
@@ -71,7 +75,7 @@ func updateObjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := rh.JSONSet(obj + ":" + id, ".", m)
+	_, err := rh.JSONSet(objectName + ":" + id, ".", m)
 
 	if err != nil {
 		log.Fatalf("Failed to JSONSet" + err.Error())
@@ -135,11 +139,22 @@ func returnSingleObjects(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(m)
 }
 
+func objectIsAllowed(objectName string) bool {
+
+	objectMap := map[string]bool{"persons": true, "jobs": true}
+
+	return objectMap[objectName]
+}
+
 func createNewObjects(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: createNewArticle")
 
 	vars := mux.Vars(r)
-	obj := vars["object"]
+	objectName := vars["object"]
+
+	if !objectIsAllowed(objectName) {
+		return
+	}
 
 	reqBody, _ := ioutil.ReadAll(r.Body)
 
@@ -147,7 +162,7 @@ func createNewObjects(w http.ResponseWriter, r *http.Request) {
 
 	json.Unmarshal(reqBody, &object)
 
-	res, err := client.Do("INCR", "count:" + obj)
+	res, err := client.Do("INCR", "count:" + objectName)
 	if err != nil {
 
 	}
@@ -156,7 +171,7 @@ func createNewObjects(w http.ResponseWriter, r *http.Request) {
 	m := object.(map[string]interface{})
 	m["Id"] = id
 
-	_, err = rh.JSONSet(obj + ":" + id, ".", m)
+	_, err = rh.JSONSet(objectName + ":" + id, ".", m)
 
 	if err != nil {
 		log.Fatalf("Failed to JSONSet" + err.Error())
