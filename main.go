@@ -61,6 +61,7 @@ func updateObjects(w http.ResponseWriter, r *http.Request) {
 	objectName := vars["object"]
 
 	if !objectIsAllowed(objectName) {
+		http.Error(w, "Bad Request", 400)
 		return
 	}
 
@@ -153,6 +154,7 @@ func createNewObjects(w http.ResponseWriter, r *http.Request) {
 	objectName := vars["object"]
 
 	if !objectIsAllowed(objectName) {
+		http.Error(w, "Bad Request", 400)
 		return
 	}
 
